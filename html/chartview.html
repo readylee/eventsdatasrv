@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>RLJ CHARTS n MORE</title>
+<script src="https://cdn.zingchart.com/zingchart.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<style>
+#rljChart {
+  margin: 30px 25px;
+  padding: 25px 25px; 
+}
+.slidecontainer {
+  width: 80%;
+}
+
+.slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 15px;
+  border-radius: 5px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.slider:hover {
+  opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%; 
+  background: #4CAF50;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%; 
+  background: #4CAF50;
+  cursor: pointer;
+}
+
+#rangeEndSlide::-webkit-slider-thumb {
+  background: #ff1010;
+}
+
+#rangeEndSlide::-moz-range-thumb {
+  background: #ff1010;
+}
+
+button.updatectrl {
+  font: bold 20px Arial;
+  background-color: #e1e3e5;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+}
+#buttoncontainer {
+  text-align: center;
+  margin: 0 auto;
+}
+</style>
+</head>
+<body>
+<div id="rljChart">
+</div>
+<div id="rljChart2">
+</div>
+<div class="slidecontainer">
+  <h3>Select the range of events to view in the graphs. If [End] is set to -1, then results will include ALL records, from id#[Start] til [(end of records)], inclusive.</h3>
+  <input type="range" min="0" max="100" value="0" class="slider" id="rangeStartSlide">
+  <p>Start: <input type="number" id="rangeStartVal" value="0" min="0" max="100"></p>
+  <input type="range" min="-1" max="101" value="-1" class="slider" id="rangeEndSlide">
+  <p>End: <input type="number" id="rangeEndVal" value="-1" min="-1" max="100"></p>
+  <div id="buttoncontainer">
+  <button id="updateControl" class="updatectrl">Click to (re-)render chart views.</button>
+  </div>
+</div>
+<script>
+
+
+
+let defaultRangeStart = 0;
+let requestAll = false;
+
+let rangeStart = 0;
+let rangeEnd = -1;
+
+const urlBase = "http://localhost:8088"
+
+const eventsDataUrl = urlBase + "/eventsdata";
+const eventsCountUrl = urlBase + "/eventsmetadata";
+
+
+var rangeStartSlider = document.getElementById("rangeStartSlide");
+var rangeEndSlider = document.getElementById("rangeEndSlide");
+
+var entryCount;
+
+$.get(eventsCountUrl, function(data){
+    var dataParsed = data; //JSON.parse(data);
+    entryCount =  parseInt(dataParsed["EntryCount"]);
+    $("#rangeStartVal").attr("max", entryCount);
+    $("#rangeEndVal").attr("max", entryCount);
+    $("#rangeStartSlide").attr("max", entryCount);
+    $("#rangeEndSlide").attr("max", entryCount);
+});
+
+$("#rangeStartVal").val(rangeStartSlider.value);
+$("#rangeEndVal").val(rangeEndSlider.value);
+
+rangeStartSlider.oninput = function() {
+    $("#rangeStartVal").val(this.value);
+    rangeStart = parseInt(this.value);
+    $("#rangeStartVal").change();
+}
+
+rangeEndSlider.oninput = function() {
+    $("#rangeEndVal").val(this.value);
+    rangeEnd = parseInt(this.value);
+    $("#rangeEndVal").change();
+}
+
+$("#rangeStartVal").on("input", function(){
+    rangeStart = parseInt(this.value);
+    rangeStartSlider.value = this.value;
+    $("#rangeStartVal").change();
+});
+
+$("#rangeEndVal").on("input", function(){
+    rangeEnd = parseInt(this.value);
+    rangeEndSlider.value = this.value;
+    $("#rangeEndVal").change();
+});
+
+$("#rangeStartVal").on("change", function(){
+    var val = parseInt(this.value);
+    if (val > rangeEnd) {
+        if (rangeEnd >= 0) {
+            rangeEndSlider.value = val;
+            rangeEnd = val;
+            $("#rangeEndVal").val(val);
+        }
+    }
+});
+
+$("#rangeEndVal").on("change", function(){
+    var v = parseInt(this.value);
+
+    if (v < rangeStart) {
+        var newRangeStartVal = ((v < 1) ? (v == 0 ? 0 : rangeStart) : v);
+        rangeStartSlider.value = newRangeStartVal;
+        rangeStart = newRangeStartVal;
+        $("#rangeStartVal").val(newRangeStartVal);
+    }
+});
+
+function validateRange() {
+    if (rangeStart > entryCount || rangeStart < 0) {
+        if (rangeStart > entryCount) {
+            rangeStartSlider.value = entryCount;
+            rangeStart = entryCount;
+            $("#rangeStartVal").val(entryCount);
+        } else {
+            rangeStartSlider.value = 0;
+            rangeStart = 0;
+            $("#rangeStartVal").val(0);
+        }
+    }
+
+    if (rangeEnd > entryCount || ((rangeStart > rangeEnd) && (rangeEnd >= 0))) {
+        rangeEndSlider.value = entryCount;
+        rangeEnd = entryCount;
+        $("#rangeEndVal").val(entryCount);
+    }
+}
+
+var updateControl = document.getElementById("updateControl");
+
+updateControl.onclick = function() {
+    validateRange();
+
+    let dataUrl = eventsDataUrl;
+
+    if (requestAll) {
+        dataUrl = dataUrl + `?from=${defaultRangeStart}`;
+    } else if (rangeEnd < 0) {
+        dataUrl = dataUrl + `?from=${rangeStart}`;
+    } else {
+        dataUrl = dataUrl + `?from=${rangeStart}&to=${rangeEnd}`;
+    }
+
+    $.get(dataUrl, function(data){
+        prepDataAndRender(data);
+    });
+}
+
+var rangeEndDisplay = document.getElementById("rangeEndVal");
+
+var logSuccessEventsCount = [0];
+var logFailureEventsCount = [0];
+var logOtherEventsCount = [0];
+var wordsCounted = [];
+var wordCounts = [];
+
+
+// let's collect some data from our parsed json data set
+function prepDataAndRender(dataSet) {
+    logSuccessEventsCount[0] = 0
+    logFailureEventsCount[0] = 0
+    logOtherEventsCount[0] = 0
+
+    wordCounts = [];
+    wordsCounted = [];
+
+    for (var i = 0; i < dataSet.length-1; i++) {
+        logonType = dataSet[i]["Action"].toLowerCase();
+        userLogin = dataSet[i]["UserName"].toLowerCase().trim();
+
+        if (logonType.includes("success")) {
+            logSuccessEventsCount[0]++;
+        } else if (logonType.includes("fail")) {
+            logFailureEventsCount[0]++;
+        } else {
+            logOtherEventsCount[0]++;
+        }
+
+        function currentUserLoginCount(wordCountsArrayMember) {
+            return wordCountsArrayMember.text == userLogin;
+        }
+
+        if (wordsCounted.includes(userLogin)) {
+            wordCounts[wordCounts.findIndex(currentUserLoginCount)]["count"]++;
+        } else {
+            wordsCounted.push(userLogin);
+            wordCounts.push({text: userLogin, count: 1});
+        }
+    }
+
+    zingchart.render({
+        id: 'rljChart',
+        data: rljChartConfig1,
+        height: 350,
+        width: '85%',
+    });
+}
+
+let rljChartConfig1 = {
+    layout: '1x2',
+    graphset: [
+       {
+           type: 'bar3d',
+           title: {
+               text: "# of Login Events",
+               fontSize: 20,
+           },
+           legend: {
+               draggable: true,
+               shared: true,
+           },
+           "3d-aspect": {
+               "y-angle": 1,
+               depth: '150px',
+           },
+           plot: {
+                tooltip: {
+                    text: '%t: %v',
+                    textAlign: 'left',
+                    padding: 10,
+                    fontSize: 16,
+                }
+           },
+           plotarea: {
+               marginRight: 'dynamic',
+               marginLeft: 'dynamic',
+           },
+           "scale-x": {
+               labels: ['Total # of Login Events by Action Type']
+           },
+           series: [
+           {
+              values: logSuccessEventsCount,
+              text: 'Success Events',
+              "background-color": 'green',
+           },
+           {
+              values: logFailureEventsCount,
+              text: 'Failure Events'
+           },
+           {
+              values: logOtherEventsCount,
+              text: 'Other Events',
+              "background-color": '#0055BF',
+           },
+       ],
+       },
+       {
+           type: 'pie3d',
+           fontSize: 20,
+           title: {
+               text: '% of Login Events',
+           },
+           legend: {
+               draggable: true,
+               shared: true,
+           },
+           plot: {
+               valueBox: {
+                    text: '%npv%',
+                    textAlign: 'left',
+                    fontSize: 16,
+                },
+                tooltip: {
+                    text: '%t: %v (%npv%)',
+                    textAlign: 'left',
+                    padding: 10,
+                    fontSize: 16,
+                }
+           },
+           series: [
+               {
+                   values: logSuccessEventsCount,
+                   text: 'Success Events',
+                   "background-color": 'green',
+               },
+               {
+                   values: logFailureEventsCount,
+                   text: 'Failure Events'
+               },
+               {
+                   values: logOtherEventsCount,
+                   text: 'Other Events',
+                   "background-color": '#0055BF',
+               },
+           ],
+       }
+   ]
+};
+
+</script>
+
+</body>
+</html>
