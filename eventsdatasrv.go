@@ -138,23 +138,19 @@ func runLocalServer(authString string, dataClient *http.Client) {
 
     eventsDataHandler := func(wr http.ResponseWriter, req *http.Request) {
         // serve the local json, which should be at EVENTS_LOCAL_JSON_FILE_NAME
-        if (authString != "") {
-            parsedParams := parseEventsRequestParams(req.URL.Query())
-            if (lastSearch != parsedParams) {
-                attemptGetSomeEvents(authString, dataClient, parsedParams)
-                lastSearch = parsedParams
-            }
-            http.ServeFile(wr, req, EVENTS_LOCAL_JSON_FILE_NAME)
+        parsedParams := parseEventsRequestParams(req.URL.Query())
+        if (lastSearch != parsedParams) {
+            attemptGetSomeEvents(authString, dataClient, parsedParams)
+            lastSearch = parsedParams
         }
+        http.ServeFile(wr, req, EVENTS_LOCAL_JSON_FILE_NAME)
     }
     http.HandleFunc("/eventsdata", eventsDataHandler)
 
     eventsMetaHandler := func(wr http.ResponseWriter, req *http.Request) {
         // serve the html at EVENTS_META_DATA_FILE_NAME
-        if (authString != "") {
-            attemptGetEventsMeta(authString, dataClient)
-            http.ServeFile(wr, req, EVENTS_META_DATA_FILE_NAME)
-        }
+        attemptGetEventsMeta(authString, dataClient)
+        http.ServeFile(wr, req, EVENTS_META_DATA_FILE_NAME)
     }
     http.HandleFunc("/eventsmetadata", eventsMetaHandler)
 
@@ -251,7 +247,7 @@ func attemptGetSomeEvents(authToken string, c *http.Client, params string) {
 }
 
 func saveJSONDataLocally(data interface{}, filename string) {
-     jsonData, _ := json.MarshalIndent(data, "", " ")
+    jsonData, _ := json.MarshalIndent(data, "", " ")
     _ = ioutil.WriteFile(filename, jsonData, 0644)
 }
 
