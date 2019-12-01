@@ -72,8 +72,6 @@ button.updatectrl {
 <body>
 <div id="rljChart">
 </div>
-<div id="rljChart2">
-</div>
 <div class="slidecontainer">
   <h3>Select the range of events to view in the graphs. If [End] is set to -1, then results will include ALL records, from id#[Start] til [(end of records)], inclusive.</h3>
   <input type="range" min="0" max="100" value="0" class="slider" id="rangeStartSlide">
@@ -202,8 +200,6 @@ updateControl.onclick = function() {
         prepDataAndRender(data);
     });
 }
-
-var rangeEndDisplay = document.getElementById("rangeEndVal");
 
 var logSuccessEventsCount = [0];
 var logFailureEventsCount = [0];
